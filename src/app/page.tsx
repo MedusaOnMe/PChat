@@ -181,7 +181,6 @@ function MiniPlayerContent({
 export default function Home() {
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
-  const [showBookmarklet, setShowBookmarklet] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [pipSupported, setPipSupported] = useState(false);
   const pipWindowRef = useRef<Window | null>(null);
@@ -343,7 +342,7 @@ export default function Home() {
       const code = `javascript:(function(){try{var m=location.href.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);if(!m){alert('No token address found.');return;}var w=380,h=500,l=screen.width-w-20,t=80;window.open('${siteOrigin}/pip/'+m[0],'pumpchat','popup=yes,width='+w+',height='+h+',left='+l+',top='+t);}catch(e){alert('Error: '+e.message);}})();`;
       bookmarkletRef.current.setAttribute("href", code);
     }
-  }, [siteOrigin, showBookmarklet]);
+  }, [siteOrigin]);
 
   // Syntax highlighted code display
   const SyntaxHighlight = () => (
@@ -534,55 +533,31 @@ export default function Home() {
 
         {/* Bookmarklet section */}
         <div className="text-center">
-          <button
-            onClick={() => setShowBookmarklet(!showBookmarklet)}
-            className="text-sm text-zinc-400 hover:text-white transition-colors flex items-center gap-2 mx-auto"
-          >
-            <svg className="w-4 h-4 text-[#00ff88]" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            Power User: One-Click Bookmarklet
-            <svg
-              className={`w-4 h-4 transition-transform ${showBookmarklet ? "rotate-180" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <p className="text-sm text-zinc-300 mb-4">Or use from any token page:</p>
+
+          <div className="mb-4 p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg inline-block">
+            <a
+              ref={bookmarkletRef}
+              href="#"
+              onClick={(e) => e.preventDefault()}
+              draggable
+              className="px-6 py-3 bg-[#00ff88] text-black font-bold rounded-lg text-sm cursor-move hover:bg-[#00cc6a] transition-colors inline-block"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+              PumpChat
+            </a>
+            <p className="text-xs text-zinc-500 mt-3">← Drag to bookmarks bar</p>
+          </div>
 
-          {showBookmarklet && (
-            <div className="mt-4 p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg text-left">
-              <p className="text-sm text-zinc-300 mb-3">Drag this to your bookmarks bar:</p>
+          <p className="text-xs text-zinc-500 mt-4">
+            Click it on Axiom, DexScreener, etc. to join voice.
+          </p>
 
-              <div className="mb-4 p-4 bg-[#0a0a0a] rounded-lg flex items-center justify-center">
-                <a
-                  ref={bookmarkletRef}
-                  href="#"
-                  onClick={(e) => e.preventDefault()}
-                  draggable
-                  className="px-6 py-3 bg-[#00ff88] text-black font-bold rounded-lg text-sm cursor-move hover:bg-[#00cc6a] transition-colors"
-                >
-                  PumpChat
-                </a>
-              </div>
-
-              <div className="text-xs text-zinc-500 space-y-1 mb-4">
-                <p>1. Click bookmarklet on any token page</p>
-                <p>2. Tap to start voice chat</p>
-                <p>3. Switch back to your trading tab</p>
-                <p>4. Floating player stays with you!</p>
-              </div>
-
-              <details className="text-xs">
-                <summary className="text-zinc-500 cursor-pointer hover:text-zinc-300">View full source (read the comments)</summary>
-                <div className="mt-2">
-                  <SyntaxHighlight />
-                </div>
-              </details>
+          <details className="text-xs mt-4">
+            <summary className="text-zinc-600 cursor-pointer hover:text-zinc-400">What does this code do?</summary>
+            <div className="mt-3 text-left max-w-md mx-auto">
+              <SyntaxHighlight />
             </div>
-          )}
+          </details>
         </div>
 
         {/* Footer */}
