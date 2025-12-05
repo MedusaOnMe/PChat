@@ -329,6 +329,7 @@ export default function Home() {
 
   const [siteOrigin, setSiteOrigin] = useState("https://pumpchat.xyz");
   const bookmarkletRef = useRef<HTMLAnchorElement>(null);
+  const autoSwitchRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
     setSiteOrigin(window.location.origin);
@@ -341,6 +342,11 @@ export default function Home() {
     if (bookmarkletRef.current && siteOrigin) {
       const code = `javascript:(function(){try{var m=location.href.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);if(!m){alert('No token address found.');return;}var w=380,h=500,l=screen.width-w-20,t=80;window.open('${siteOrigin}/pip/'+m[0],'pumpchat','popup=yes,width='+w+',height='+h+',left='+l+',top='+t);}catch(e){alert('Error: '+e.message);}})();`;
       bookmarkletRef.current.setAttribute("href", code);
+    }
+    // Auto-switch bookmarklet - watches URL and switches rooms automatically
+    if (autoSwitchRef.current && siteOrigin) {
+      const autoCode = `javascript:(function(){if(window.__PUMPCHAT_WATCHER__){alert('Already watching!');return;}window.__PUMPCHAT_WATCHER__=true;var lastCA=null,w=380,h=500,l=screen.width-w-20,t=80;function check(){try{var m=location.href.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);if(m&&m[0]!==lastCA){lastCA=m[0];window.open('${siteOrigin}/pip/'+m[0],'pumpchat','popup=yes,width='+w+',height='+h+',left='+l+',top='+t);}}catch(e){}}check();setInterval(check,500);alert('PumpChat watching - will auto-switch rooms!');})();`;
+      autoSwitchRef.current.setAttribute("href", autoCode);
     }
   }, [siteOrigin]);
 
@@ -532,29 +538,49 @@ export default function Home() {
         <div className="my-8 border-t border-[#2a2a2a]"></div>
 
         {/* Bookmarklet section */}
-        <div className="text-center">
-          <p className="text-sm text-zinc-300 mb-4">Or use from any token page:</p>
-
-          <div className="mb-4 p-4 bg-[#141414] border border-[#2a2a2a] rounded-lg inline-block">
-            <a
-              ref={bookmarkletRef}
-              href="#"
-              onClick={(e) => e.preventDefault()}
-              draggable
-              className="px-6 py-3 bg-[#00ff88] text-black font-bold rounded-lg text-sm cursor-move hover:bg-[#00cc6a] transition-colors inline-block"
-            >
-              PumpChat
-            </a>
-            <p className="text-xs text-zinc-500 mt-3">← Drag to bookmarks bar</p>
+        <div>
+          <div className="text-center mb-4">
+            <p className="text-sm text-zinc-300 font-medium">Bookmarks</p>
+            <p className="text-xs text-zinc-500">Drag one to your bookmarks bar</p>
           </div>
 
-          <p className="text-xs text-zinc-500 mt-4">
-            Click it on Axiom, DexScreener, etc. to join voice.
-          </p>
+          <div className="space-y-2">
+            <div className="p-3 bg-[#141414] border border-[#2a2a2a] rounded-lg">
+              <div className="flex items-center gap-3 mb-2">
+                <a
+                  ref={bookmarkletRef}
+                  href="#"
+                  onClick={(e) => e.preventDefault()}
+                  draggable
+                  className="px-4 py-1.5 bg-[#00ff88] text-black font-bold rounded text-sm cursor-move hover:bg-[#00cc6a] transition-colors"
+                >
+                  ⭐ PumpChat
+                </a>
+                <span className="text-xs text-zinc-500">← drag this</span>
+              </div>
+              <p className="text-xs text-zinc-400">Opens voice chat for the coin you&apos;re viewing. Manual - you click it each time you want to switch coins.</p>
+            </div>
+
+            <div className="p-3 bg-[#141414] border border-[#2a2a2a] rounded-lg">
+              <div className="flex items-center gap-3 mb-2">
+                <a
+                  ref={autoSwitchRef}
+                  href="#"
+                  onClick={(e) => e.preventDefault()}
+                  draggable
+                  className="px-4 py-1.5 bg-[#00ff88] text-black font-bold rounded text-sm cursor-move hover:bg-[#00cc6a] transition-colors"
+                >
+                  ⭐ Auto
+                </a>
+                <span className="text-xs text-zinc-500">← drag this</span>
+              </div>
+              <p className="text-xs text-zinc-400">Click once, then it watches. When you click a different coin on Axiom, it auto-switches your voice room.</p>
+            </div>
+          </div>
 
           <details className="text-xs mt-4">
             <summary className="text-zinc-600 cursor-pointer hover:text-zinc-400">What does this code do?</summary>
-            <div className="mt-3 text-left max-w-md mx-auto">
+            <div className="mt-3 text-left">
               <SyntaxHighlight />
             </div>
           </details>
