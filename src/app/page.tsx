@@ -554,7 +554,7 @@ export default function Home() {
                   draggable
                   className="px-4 py-1.5 bg-[#00ff88] text-black font-bold rounded text-sm cursor-move hover:bg-[#00cc6a] transition-colors"
                 >
-                  ⭐ PumpChat
+                  PumpChat
                 </a>
                 <span className="text-xs text-zinc-500">← drag this</span>
               </div>
@@ -570,7 +570,7 @@ export default function Home() {
                   draggable
                   className="px-4 py-1.5 bg-[#00ff88] text-black font-bold rounded text-sm cursor-move hover:bg-[#00cc6a] transition-colors"
                 >
-                  ⭐ Auto
+                  Auto
                 </a>
                 <span className="text-xs text-zinc-500">← drag this</span>
               </div>
