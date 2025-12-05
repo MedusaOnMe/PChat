@@ -1,36 +1,91 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PumpChat
 
-## Getting Started
+Voice chat for any Pump.fun token. No wallet connection required.
 
-First, run the development server:
+## Features
+
+- **Paste & Go**: Paste any token address or URL, join voice instantly
+- **Pop-out Window**: Opens as a small floating window alongside your trading terminal
+- **Anonymous**: No wallet connection, no signup, no data collected
+- **Bookmarklet**: Optional one-click access from any token page
+
+## Setup
+
+### 1. Get LiveKit Credentials
+
+1. Go to [LiveKit Cloud](https://cloud.livekit.io) and create a free account
+2. Create a new project
+3. Copy your API Key, API Secret, and WebSocket URL
+
+### 2. Configure Environment
+
+Copy `.env.example` to `.env.local` and fill in your credentials:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then edit `.env.local`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+LIVEKIT_API_KEY=your_api_key_here
+LIVEKIT_API_SECRET=your_api_secret_here
+NEXT_PUBLIC_LIVEKIT_URL=wss://your-project.livekit.cloud
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Install & Run
 
-## Learn More
+```bash
+npm install
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open [http://localhost:3000](http://localhost:3000)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Usage
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Basic Usage
 
-## Deploy on Vercel
+1. Copy a token address from pump.fun, DexScreener, Axiom, etc.
+2. Paste it into the input box
+3. Click "Pop Out" to open voice chat in a floating window
+4. Allow microphone access when prompted
+5. Click "Unmute" to speak
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Bookmarklet (Power Users)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. On the homepage, expand "Power User: One-Click Bookmarklet"
+2. Drag the "PumpChat" button to your bookmarks bar
+3. When on any token page, click the bookmark to instantly open voice chat
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── page.tsx              # Homepage with paste box
+│   ├── api/token/route.ts    # LiveKit token generation
+│   └── room/[ca]/
+│       ├── page.tsx          # Room page (server)
+│       └── RoomClient.tsx    # Room page (client)
+├── components/
+│   └── VoiceRoom.tsx         # LiveKit voice chat component
+```
+
+## Deployment
+
+Deploy to Vercel:
+
+```bash
+npm install -g vercel
+vercel
+```
+
+Set your environment variables in the Vercel dashboard.
+
+## Tech Stack
+
+- **Next.js 14** - React framework
+- **LiveKit** - WebRTC voice infrastructure
+- **Tailwind CSS** - Styling
+- **TypeScript** - Type safety
