@@ -540,8 +540,8 @@ export default function Home() {
         {/* Bookmarklet section */}
         <div>
           <div className="text-center mb-4">
-            <p className="text-sm text-zinc-300 font-medium">Bookmarks</p>
-            <p className="text-xs text-zinc-500">Drag one to your bookmarks bar</p>
+            <p className="text-sm text-zinc-300 font-medium">Voice Chat from Axiom</p>
+            <p className="text-xs text-zinc-500 mt-1">Drag one to your bookmarks bar. Use it on Axiom.</p>
           </div>
 
           <div className="space-y-2">
@@ -556,9 +556,9 @@ export default function Home() {
                 >
                   PumpChat
                 </a>
-                <span className="text-xs text-zinc-500">← drag this</span>
+                <span className="text-xs text-zinc-500">← drag and drop into bookmark bar</span>
               </div>
-              <p className="text-xs text-zinc-400">Opens voice chat for the coin you&apos;re viewing. Manual - you click it each time you want to switch coins.</p>
+              <p className="text-xs text-zinc-400">Click to join the currently viewed coin&apos;s room. You&apos;ll stay in that room as you browse other coins. Click again to switch.</p>
             </div>
 
             <div className="p-3 bg-[#141414] border border-[#2a2a2a] rounded-lg">
@@ -570,11 +570,11 @@ export default function Home() {
                   draggable
                   className="px-4 py-1.5 bg-[#00ff88] text-black font-bold rounded text-sm cursor-move hover:bg-[#00cc6a] transition-colors"
                 >
-                  Auto
+                  PumpChat Auto
                 </a>
-                <span className="text-xs text-zinc-500">← drag this</span>
+                <span className="text-xs text-zinc-500">← drag and drop into bookmark bar</span>
               </div>
-              <p className="text-xs text-zinc-400">Click once, then it watches. When you click a different coin on Axiom, it auto-switches your voice room.</p>
+              <p className="text-xs text-zinc-400">Click once to activate. Automatically switches rooms as you browse different coins.</p>
             </div>
           </div>
 
