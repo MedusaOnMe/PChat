@@ -345,15 +345,69 @@ export default function Home() {
     }
   }, [siteOrigin, showBookmarklet]);
 
-  // Full bookmarklet code for display
-  const bookmarkletCodeDisplay = `javascript:(function(){
-  try {
-    var m = location.href.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
-    if (!m) { alert('No token address found.'); return; }
-    var w=380, h=500, l=screen.width-w-20, t=80;
-    window.open('${siteOrigin}/pip/' + m[0], 'pumpchat', 'popup=yes,width='+w+',height='+h+',left='+l+',top='+t);
-  } catch(e) { alert('Error: ' + e.message); }
-})();`;
+  // Syntax highlighted code display
+  const SyntaxHighlight = () => (
+    <pre className="p-3 bg-[#0a0a0a] rounded text-[11px] whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto">
+      <span className="text-purple-400">javascript:</span>
+      <span className="text-zinc-300">(</span>
+      <span className="text-purple-400">function</span>
+      <span className="text-zinc-300">(){"{"}</span>{"\n"}
+      {"  "}<span className="text-purple-400">try</span><span className="text-zinc-300"> {"{"}</span>{"\n"}
+      {"    "}<span className="text-zinc-500">{"// READ-ONLY: Extract Solana address from URL"}</span>{"\n"}
+      {"    "}<span className="text-zinc-500">{"// Cannot access cookies, localStorage, or wallet"}</span>{"\n"}
+      {"    "}<span className="text-purple-400">var</span><span className="text-zinc-300"> m = </span>
+      <span className="text-blue-400">location</span><span className="text-zinc-300">.</span>
+      <span className="text-blue-400">href</span><span className="text-zinc-300">.</span>
+      <span className="text-yellow-300">match</span>
+      <span className="text-zinc-300">(</span>
+      <span className="text-orange-400">/[1-9A-HJ-NP-Za-km-z]{"{"}32,44{"}"}/</span>
+      <span className="text-zinc-300">);</span>{"\n\n"}
+      {"    "}<span className="text-zinc-500">{"// Exit if no token address found"}</span>{"\n"}
+      {"    "}<span className="text-purple-400">if</span><span className="text-zinc-300"> (!m) {"{"} </span>
+      <span className="text-yellow-300">alert</span>
+      <span className="text-zinc-300">(</span>
+      <span className="text-green-400">&apos;No token address found.&apos;</span>
+      <span className="text-zinc-300">); </span>
+      <span className="text-purple-400">return</span>
+      <span className="text-zinc-300">; {"}"}</span>{"\n\n"}
+      {"    "}<span className="text-zinc-500">{"// Popup position (top-right)"}</span>{"\n"}
+      {"    "}<span className="text-purple-400">var</span><span className="text-zinc-300"> w=</span>
+      <span className="text-orange-300">380</span><span className="text-zinc-300">, h=</span>
+      <span className="text-orange-300">500</span><span className="text-zinc-300">, l=</span>
+      <span className="text-blue-400">screen</span><span className="text-zinc-300">.width-w-</span>
+      <span className="text-orange-300">20</span><span className="text-zinc-300">, t=</span>
+      <span className="text-orange-300">80</span><span className="text-zinc-300">;</span>{"\n\n"}
+      {"    "}<span className="text-zinc-500">{"// Opens SEPARATE window (isolated from trading site)"}</span>{"\n"}
+      {"    "}<span className="text-yellow-300">window.open</span><span className="text-zinc-300">(</span>{"\n"}
+      {"      "}<span className="text-green-400">&apos;{siteOrigin}/pip/&apos;</span>
+      <span className="text-zinc-300"> + m[</span><span className="text-orange-300">0</span><span className="text-zinc-300">],</span>{"\n"}
+      {"      "}<span className="text-green-400">&apos;pumpchat&apos;</span>
+      <span className="text-zinc-300">,</span>
+      <span className="text-zinc-500"> {"// reuses same window"}</span>{"\n"}
+      {"      "}<span className="text-green-400">&apos;popup=yes,width=&apos;</span>
+      <span className="text-zinc-300">+w+</span>
+      <span className="text-green-400">&apos;,height=&apos;</span>
+      <span className="text-zinc-300">+h+</span>
+      <span className="text-green-400">&apos;,left=&apos;</span>
+      <span className="text-zinc-300">+l+</span>
+      <span className="text-green-400">&apos;,top=&apos;</span>
+      <span className="text-zinc-300">+t</span>{"\n"}
+      {"    "}<span className="text-zinc-300">);</span>{"\n"}
+      {"  "}<span className="text-zinc-300">{"}"} </span>
+      <span className="text-purple-400">catch</span>
+      <span className="text-zinc-300">(e) {"{"} </span>
+      <span className="text-yellow-300">alert</span>
+      <span className="text-zinc-300">(</span>
+      <span className="text-green-400">&apos;Error: &apos;</span>
+      <span className="text-zinc-300">+ e.message); {"}"}</span>{"\n"}
+      <span className="text-zinc-300">{"}"})()</span>{"\n\n"}
+      <span className="text-zinc-500">{"// ✓ Only reads URL - nothing else"}</span>{"\n"}
+      <span className="text-zinc-500">{"// ✓ Cannot access wallet or keys"}</span>{"\n"}
+      <span className="text-zinc-500">{"// ✓ Cannot read cookies/storage"}</span>{"\n"}
+      <span className="text-zinc-500">{"// ✓ Cannot modify trading page"}</span>{"\n"}
+      <span className="text-zinc-500">{"// ✓ Isolated origin (different domain)"}</span>
+    </pre>
+  );
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
@@ -423,10 +477,10 @@ export default function Home() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
                     />
                   </svg>
-                  {pipSupported ? "Mini Player" : "Pop Out"}
+                  Join Voice Chat
                 </>
               )}
             </button>
@@ -522,16 +576,10 @@ export default function Home() {
               </div>
 
               <details className="text-xs">
-                <summary className="text-zinc-500 cursor-pointer hover:text-zinc-300">View source code</summary>
+                <summary className="text-zinc-500 cursor-pointer hover:text-zinc-300">View full source (read the comments)</summary>
                 <div className="mt-2">
-                  <pre className="p-2 bg-[#0a0a0a] rounded text-zinc-400 overflow-x-auto text-[10px] whitespace-pre-wrap">
-                    {bookmarkletCodeDisplay}
-                  </pre>
+                  <SyntaxHighlight />
                 </div>
-                <ul className="mt-2 text-zinc-500 space-y-1">
-                  <li>Only reads the current page URL</li>
-                  <li>Cannot access your wallet</li>
-                </ul>
               </details>
             </div>
           )}
@@ -539,15 +587,6 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="mt-8 text-center text-xs text-zinc-600">
-          <a
-            href="https://github.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-zinc-400 transition-colors"
-          >
-            Open Source
-          </a>
-          <span className="mx-2">|</span>
           <span>No data collected</span>
         </footer>
       </main>

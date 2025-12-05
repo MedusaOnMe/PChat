@@ -85,17 +85,17 @@ function MiniPlayerContent({
       {/* Header */}
       <div
         style={{
-          padding: "12px 16px",
+          padding: "8px 12px",
           borderBottom: "1px solid #2a2a2a",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
         }}
       >
-        <span style={{ fontSize: "14px", fontWeight: "bold" }}>
+        <span style={{ fontSize: "13px", fontWeight: "bold" }}>
           <span style={{ color: "#00ff88" }}>Pump</span>Chat
         </span>
-        <span style={{ fontSize: "12px", color: "#71717a", fontFamily: "monospace" }}>
+        <span style={{ fontSize: "11px", color: "#71717a", fontFamily: "monospace" }}>
           {shortName}
         </span>
       </div>
@@ -108,8 +108,8 @@ function MiniPlayerContent({
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: "16px",
-          gap: "8px",
+          padding: "8px 12px",
+          gap: "4px",
         }}
       >
         <div style={{ fontSize: "12px", color: "#71717a", marginBottom: "8px" }}>
@@ -147,23 +147,23 @@ function MiniPlayerContent({
       {/* Controls */}
       <div
         style={{
-          padding: "16px",
+          padding: "10px 12px",
           borderTop: "1px solid #2a2a2a",
           display: "flex",
           justifyContent: "center",
-          gap: "12px",
+          gap: "8px",
         }}
       >
         <button
           onClick={toggleMic}
           style={{
-            padding: "12px 24px",
+            padding: "8px 20px",
             borderRadius: "9999px",
             border: isMuted ? "1px solid #2a2a2a" : "none",
             backgroundColor: isMuted ? "#1a1a1a" : "#00ff88",
             color: isMuted ? "#fff" : "#000",
             fontWeight: "600",
-            fontSize: "14px",
+            fontSize: "13px",
             cursor: "pointer",
           }}
         >
@@ -172,13 +172,13 @@ function MiniPlayerContent({
         <button
           onClick={disconnect}
           style={{
-            padding: "12px 16px",
+            padding: "8px 14px",
             borderRadius: "9999px",
             border: "none",
             backgroundColor: "rgba(239, 68, 68, 0.2)",
             color: "#f87171",
             cursor: "pointer",
-            fontSize: "14px",
+            fontSize: "13px",
           }}
         >
           Leave
@@ -373,8 +373,8 @@ export default function PipPage() {
     try {
       // @ts-expect-error - Document PiP API not in TypeScript types yet
       const pip = await window.documentPictureInPicture.requestWindow({
-        width: 280,
-        height: 240,
+        width: 260,
+        height: 180,
       });
 
       pipWindowRef.current = pip;
