@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PumpChat - Voice Chat for Pump.fun Tokens",
+  title: "PumpChat",
   description: "Join voice channels for any Pump.fun token. No wallet connection required.",
   icons: {
     icon: "/favicon.ico",

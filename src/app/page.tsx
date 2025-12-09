@@ -16,18 +16,37 @@ function isPipSupported(): boolean {
   return typeof window !== "undefined" && "documentPictureInPicture" in window;
 }
 
+// ========== TEST MODE - SET TO FALSE FOR PRODUCTION ==========
+const TEST_MODE = false;
+const TEST_PARTICIPANT_COUNT = 100;
+// ==============================================================
+
 // Mini player content for PiP window
 function MiniPlayerContent({
-  roomName,
+  tokenName,
+  tokenSymbol,
   onClose,
 }: {
-  roomName: string;
+  tokenName: string;
+  tokenSymbol: string;
   onClose: () => void;
 }) {
-  const participants = useParticipants();
+  const realParticipants = useParticipants();
+
+  // Generate fake participants for testing
+  const participants = TEST_MODE
+    ? [
+        ...realParticipants,
+        ...Array.from({ length: TEST_PARTICIPANT_COUNT }, (_, i) => ({
+          identity: `TestUser${i + 1}`,
+          isSpeaking: i < 3, // First 3 are "speaking"
+        })),
+      ]
+    : realParticipants;
   const { localParticipant } = useLocalParticipant();
   const room = useRoomContext();
   const [isMuted, setIsMuted] = useState(true);
+  const displayName = tokenName.length > 20 ? tokenName.substring(0, 20) + "…" : tokenName;
 
   useEffect(() => {
     const checkMute = () => {
@@ -52,13 +71,16 @@ function MiniPlayerContent({
     onClose();
   };
 
-  const shortName = `${roomName.substring(0, 4)}...${roomName.substring(roomName.length - 4)}`;
+  // Truncate participant name for display
+  const truncateName = (name: string, max: number) =>
+    name.length > max ? name.substring(0, max) + "…" : name;
 
   return (
     <div
       style={{
+        flex: 1,
         width: "100%",
-        height: "100%",
+        minHeight: 0,
         backgroundColor: "#0a0a0a",
         color: "#ededed",
         fontFamily: "system-ui, -apple-system, sans-serif",
@@ -67,106 +89,106 @@ function MiniPlayerContent({
         overflow: "hidden",
       }}
     >
-      {/* Header */}
+      {/* Header - token + count */}
       <div
         style={{
-          padding: "12px 16px",
-          borderBottom: "1px solid #2a2a2a",
+          padding: "10px 14px",
+          borderBottom: "1px solid #222",
           display: "flex",
+          alignItems: "center",
           justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <span style={{ fontSize: "14px", fontWeight: "bold" }}>
-          <span style={{ color: "#00ff88" }}>Pump</span>Chat
-        </span>
-        <span style={{ fontSize: "12px", color: "#71717a", fontFamily: "monospace" }}>
-          {shortName}
-        </span>
-      </div>
-
-      {/* Participants */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "16px",
           gap: "8px",
         }}
       >
-        <div style={{ fontSize: "12px", color: "#71717a", marginBottom: "8px" }}>
-          <span style={{ color: "#00ff88", fontWeight: "600" }}>{participants.length}</span> in voice
-        </div>
-        <div
+        <span style={{ fontSize: "15px", fontWeight: "600", color: "#fff" }}>
+          {displayName} <span style={{ color: "#444", fontWeight: "400" }}>-</span> <span style={{ color: "#666", fontWeight: "400" }}>${tokenSymbol}</span>
+        </span>
+        <span
           style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "6px",
-            justifyContent: "center",
-            maxHeight: "120px",
-            overflowY: "auto",
+            padding: "4px 10px",
+            borderRadius: "9999px",
+            fontSize: "13px",
+            fontWeight: "600",
+            backgroundColor: "#00ff88",
+            color: "#000",
           }}
         >
-          {participants.map((p) => (
+          {participants.length}
+        </span>
+      </div>
+
+      {/* Participant list - vertical scroll */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          overflowX: "hidden",
+          padding: "8px 14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+        }}
+      >
+        {participants.length === 0 ? (
+          <span style={{ color: "#555", fontSize: "13px", padding: "4px 0" }}>No one here yet</span>
+        ) : (
+          participants.map((p) => (
             <div
               key={p.identity}
               style={{
                 padding: "6px 12px",
-                borderRadius: "9999px",
-                fontSize: "11px",
+                borderRadius: "6px",
+                fontSize: "13px",
+                fontWeight: "500",
                 backgroundColor: p.isSpeaking ? "#00ff88" : "#1a1a1a",
-                color: p.isSpeaking ? "#000" : "#a1a1aa",
-                transition: "all 0.2s",
-                transform: p.isSpeaking ? "scale(1.05)" : "scale(1)",
+                color: p.isSpeaking ? "#000" : "#ccc",
+                border: p.isSpeaking ? "none" : "1px solid #282828",
+                boxShadow: p.isSpeaking ? "0 0 10px rgba(0, 255, 136, 0.3)" : "none",
+                transition: "all 0.15s ease",
               }}
             >
-              {p.identity}
+              {truncateName(p.identity, 20)}
             </div>
-          ))}
-        </div>
+          ))
+        )}
       </div>
 
       {/* Controls */}
       <div
         style={{
-          padding: "16px",
-          borderTop: "1px solid #2a2a2a",
+          padding: "10px 14px",
+          borderTop: "1px solid #222",
           display: "flex",
           justifyContent: "center",
-          gap: "12px",
+          gap: "10px",
         }}
       >
         <button
           onClick={toggleMic}
           style={{
-            padding: "12px 24px",
+            padding: "10px 28px",
             borderRadius: "9999px",
-            border: isMuted ? "1px solid #2a2a2a" : "none",
+            border: isMuted ? "1px solid #333" : "none",
             backgroundColor: isMuted ? "#1a1a1a" : "#00ff88",
             color: isMuted ? "#fff" : "#000",
             fontWeight: "600",
             fontSize: "14px",
             cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
           }}
         >
-          {isMuted ? "Unmute" : "Speaking"}
+          {isMuted ? "Unmute" : "Mute"}
         </button>
         <button
           onClick={disconnect}
           style={{
-            padding: "12px 16px",
+            padding: "10px 20px",
             borderRadius: "9999px",
             border: "none",
-            backgroundColor: "rgba(239, 68, 68, 0.2)",
+            backgroundColor: "rgba(239, 68, 68, 0.15)",
             color: "#f87171",
             cursor: "pointer",
             fontSize: "14px",
+            fontWeight: "500",
           }}
         >
           Leave
@@ -228,25 +250,68 @@ export default function Home() {
     setIsConnecting(false);
   };
 
-  const openPipWindow = async (ca: string, token: string, serverUrl: string) => {
+  const openPipWindow = async (ca: string, token: string, serverUrl: string, tokenName: string, tokenSymbol: string) => {
     try {
       // @ts-expect-error - Document PiP API not in TypeScript types yet
       const pipWindow = await window.documentPictureInPicture.requestWindow({
-        width: 320,
-        height: 380,
+        width: 400,
+        height: 200,
       });
 
       pipWindowRef.current = pipWindow;
 
-      // Setup PiP window
+      // Setup PiP window - ensure content fills entire window
+      pipWindow.document.title = "";
+      pipWindow.document.documentElement.style.cssText = `
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #0a0a0a;
+      `;
+      pipWindow.document.body.style.cssText = `
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #0a0a0a;
+        display: flex;
+        flex-direction: column;
+      `;
+
+      // Add scrollbar styles
+      const styleEl = pipWindow.document.createElement("style");
+      styleEl.textContent = `
+        ::-webkit-scrollbar {
+          width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #333;
+          border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #444;
+        }
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: #333 transparent;
+        }
+      `;
+      pipWindow.document.head.appendChild(styleEl);
+
       const container = pipWindow.document.createElement("div");
       container.id = "pip-root";
-      container.style.width = "100%";
-      container.style.height = "100%";
+      container.style.cssText = `
+        flex: 1;
+        width: 100%;
+        min-height: 0;
+        background-color: #0a0a0a;
+        display: flex;
+        flex-direction: column;
+      `;
       pipWindow.document.body.appendChild(container);
-      pipWindow.document.body.style.margin = "0";
-      pipWindow.document.body.style.padding = "0";
-      pipWindow.document.body.style.overflow = "hidden";
 
       // Render React into PiP window
       pipRootRef.current = createRoot(container);
@@ -258,9 +323,9 @@ export default function Home() {
           audio={false}
           video={false}
           onDisconnected={closePip}
-          style={{ height: "100%" }}
+          style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
         >
-          <MiniPlayerContent roomName={ca} onClose={closePip} />
+          <MiniPlayerContent tokenName={tokenName} tokenSymbol={tokenSymbol} onClose={closePip} />
         </LiveKitRoom>
       );
 
@@ -276,15 +341,21 @@ export default function Home() {
   };
 
   const fallbackToPopup = (ca: string) => {
-    window.open(
-      `/room/${ca}`,
+    // Try popup first
+    const popup = window.open(
+      `/pip/${ca}`,
       "pumpchat",
-      "width=400,height=600,left=100,top=100,resizable=yes,scrollbars=no"
+      "width=380,height=500,left=100,top=100,resizable=yes,scrollbars=no"
     );
+    // If popup blocked (mobile browsers), navigate directly
+    if (!popup) {
+      window.location.href = `/pip/${ca}`;
+      return;
+    }
     setIsConnecting(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent, usePip: boolean = true) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -294,20 +365,25 @@ export default function Home() {
       return;
     }
 
-    // Use Document PiP
     setIsConnecting(true);
 
     try {
       // Resolve pool address to token CA if needed (for Axiom URLs)
       const tokenCA = await resolveToTokenCA(address);
 
-      // If PiP not supported or user chose popup, use fallback
-      if (!usePip || !pipSupported) {
+      // Fall back to popup if PiP not supported
+      if (!pipSupported) {
         fallbackToPopup(tokenCA);
         return;
       }
 
-      // Fetch token
+      // Fetch token info
+      const infoRes = await fetch(`/api/token-info?address=${encodeURIComponent(tokenCA)}`);
+      const infoData = await infoRes.json();
+      const tokenName = infoData.name || "Unknown";
+      const tokenSymbol = infoData.symbol || "???";
+
+      // Fetch LiveKit token
       const response = await fetch(`/api/token?room=${encodeURIComponent(tokenCA)}`);
       const data = await response.json();
 
@@ -320,7 +396,7 @@ export default function Home() {
         throw new Error("Server not configured");
       }
 
-      await openPipWindow(tokenCA, data.token, serverUrl);
+      await openPipWindow(tokenCA, data.token, serverUrl, tokenName, tokenSymbol);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to connect");
       setIsConnecting(false);
@@ -331,8 +407,41 @@ export default function Home() {
   const bookmarkletRef = useRef<HTMLAnchorElement>(null);
   const autoSwitchRef = useRef<HTMLAnchorElement>(null);
 
+  // Active rooms state
+  interface ActiveRoom {
+    ca: string;
+    name: string;
+    symbol: string;
+    participants: number;
+    createdAt: number;
+  }
+  const [activeRooms, setActiveRooms] = useState<ActiveRoom[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(true);
+
   useEffect(() => {
     setSiteOrigin(window.location.origin);
+  }, []);
+
+  // Fetch active rooms
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const res = await fetch("/api/rooms");
+        const data = await res.json();
+        if (data.rooms) {
+          setActiveRooms(data.rooms);
+        }
+      } catch (e) {
+        console.error("Failed to fetch rooms:", e);
+      } finally {
+        setLoadingRooms(false);
+      }
+    };
+
+    fetchRooms();
+    // Poll every 10 seconds
+    const interval = setInterval(fetchRooms, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Set bookmarklet href via ref to bypass React's javascript: URL blocking
@@ -450,7 +559,7 @@ export default function Home() {
         </div>
 
         {/* Main input */}
-        <form onSubmit={(e) => handleSubmit(e, true)} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <input
               type="text"
@@ -485,40 +594,29 @@ export default function Home() {
                       d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
                     />
                   </svg>
-                  Join Voice Chat
+                  Join Voice Chat (Floating Player)
                 </>
               )}
             </button>
-            <button
-              type="button"
-              onClick={(e) => handleSubmit(e, false)}
-              disabled={isConnecting}
-              className="px-4 py-3 bg-[#1a1a1a] hover:bg-[#2a2a2a] disabled:opacity-50 border border-[#2a2a2a] text-white rounded-lg transition-colors"
-              title="Open in new window"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                />
-              </svg>
-            </button>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              const address = extractAddress(input);
+              if (address) {
+                window.open(`/pip/${address}`, "_blank");
+              } else {
+                setError("Enter a valid token address first");
+              }
+            }}
+            className="w-full py-3 bg-[#1a1a1a] hover:bg-[#252525] border border-[#333] text-zinc-300 font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            Join Voice Chat (New Tab)
+          </button>
         </form>
-
-        {/* PiP indicator */}
-        {pipSupported && (
-          <div className="mt-4 text-center">
-            <span className="text-xs text-zinc-500 flex items-center justify-center gap-1">
-              <svg className="w-3 h-3 text-[#00ff88]" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zm-10-7h9v6h-9z" />
-              </svg>
-              Picture-in-Picture supported
-            </span>
-          </div>
-        )}
 
         {/* Supported sites */}
         <div className="mt-6 text-center">
@@ -534,14 +632,52 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Live Rooms */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm text-zinc-300 font-medium">Live Rooms</p>
+            <span className="text-xs text-zinc-600">
+              {loadingRooms ? "..." : `${activeRooms.length} active`}
+            </span>
+          </div>
+
+          {loadingRooms ? (
+            <div className="text-center py-4 text-zinc-500 text-sm">Loading...</div>
+          ) : activeRooms.length === 0 ? (
+            <div className="text-center py-4 text-zinc-500 text-sm">No active rooms</div>
+          ) : (
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {activeRooms.slice(0, 10).map((room) => (
+                <button
+                  key={room.ca}
+                  onClick={() => {
+                    setInput(room.ca);
+                  }}
+                  className="w-full p-3 bg-[#141414] border border-[#2a2a2a] rounded-lg hover:border-[#00ff88]/50 transition-colors text-left flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-zinc-300 group-hover:text-white font-medium">
+                      {room.name}
+                    </span>
+                    <span className="text-xs text-zinc-500">${room.symbol}</span>
+                  </div>
+                  <span className="text-xs">
+                    <span className="text-[#00ff88] font-semibold">{room.participants}</span>
+                    <span className="text-zinc-600 ml-1">in voice</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Divider */}
         <div className="my-8 border-t border-[#2a2a2a]"></div>
 
         {/* Bookmarklet section */}
         <div>
           <div className="text-center mb-4">
-            <p className="text-sm text-zinc-300 font-medium">Voice Chat from Axiom</p>
-            <p className="text-xs text-zinc-500 mt-1">Drag one to your bookmarks bar. Use it on Axiom.</p>
+            <p className="text-sm text-zinc-300 font-medium uppercase tracking-wide">Or drag to your bookmark bar for easy use within Axiom</p>
           </div>
 
           <div className="space-y-2">
