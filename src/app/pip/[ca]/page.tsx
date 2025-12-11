@@ -1,15 +1,58 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   LiveKitRoom,
   RoomAudioRenderer,
   useParticipants,
   useLocalParticipant,
   useRoomContext,
+  useConnectionState,
 } from "@livekit/components-react";
-import { Track } from "livekit-client";
-import { useParams } from "next/navigation";
+import { Track, ConnectionState, RoomEvent, DataPacket_Kind } from "livekit-client";
+import { useParams, useSearchParams } from "next/navigation";
+
+// Sound effects using Audio API
+function playJoinSound() {
+  try {
+    const audio = new Audio("/join.mp3");
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+  } catch { /* ignore */ }
+}
+
+function playLeaveSound() {
+  try {
+    const audio = new Audio("/leave.mp3");
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+  } catch { /* ignore */ }
+}
+
+function playMuteSound() {
+  try {
+    const audio = new Audio("/mute.mp3");
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+  } catch { /* ignore */ }
+}
+
+function playUnmuteSound() {
+  try {
+    const audio = new Audio("/unmute.mp3");
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+  } catch { /* ignore */ }
+}
+
+// Emoji reactions
+const REACTION_EMOJIS = ["🚀", "🔥", "🇮🇳", "🏳️‍🌈", "💀", "👍", "😂"];
+
+interface FloatingReaction {
+  id: string;
+  emoji: string;
+  x: number;
+}
 
 // Resolve pool address to token CA
 async function resolveToTokenCA(address: string): Promise<string> {
@@ -29,16 +72,73 @@ async function resolveToTokenCA(address: string): Promise<string> {
 function TabVoiceChat({
   tokenName,
   tokenSymbol,
+  tokenCA,
+  tokenImage,
   onLeave,
 }: {
   tokenName: string;
   tokenSymbol: string;
+  tokenCA: string;
+  tokenImage: string | null;
   onLeave: () => void;
 }) {
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
   const room = useRoomContext();
+  const connectionState = useConnectionState();
   const [isMuted, setIsMuted] = useState(true);
+  const prevParticipantCount = useRef(participants.length);
+  const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
+
+  // Add a floating reaction to display
+  const addFloatingReaction = useCallback((emoji: string) => {
+    const id = `${Date.now()}-${Math.random()}`;
+    const x = 20 + Math.random() * 60; // Random x position (20-80%)
+    setFloatingReactions(prev => [...prev, { id, emoji, x }]);
+    // Remove after animation completes
+    setTimeout(() => {
+      setFloatingReactions(prev => prev.filter(r => r.id !== id));
+    }, 2000);
+  }, []);
+
+  // Send a reaction to all participants
+  const sendReaction = useCallback((emoji: string) => {
+    // Show locally immediately
+    addFloatingReaction(emoji);
+    // Broadcast to others
+    const data = new TextEncoder().encode(JSON.stringify({ type: "reaction", emoji }));
+    localParticipant.publishData(data, { reliable: true });
+  }, [localParticipant, addFloatingReaction]);
+
+  // Listen for reactions from other participants
+  useEffect(() => {
+    const handleData = (payload: Uint8Array) => {
+      try {
+        const message = JSON.parse(new TextDecoder().decode(payload));
+        if (message.type === "reaction" && message.emoji) {
+          addFloatingReaction(message.emoji);
+        }
+      } catch { /* ignore invalid messages */ }
+    };
+    room.on(RoomEvent.DataReceived, handleData);
+    return () => {
+      room.off(RoomEvent.DataReceived, handleData);
+    };
+  }, [room, addFloatingReaction]);
+
+  // Track participant changes for sounds
+  useEffect(() => {
+    const currentCount = participants.length;
+    const prevCount = prevParticipantCount.current;
+
+    if (currentCount > prevCount) {
+      playJoinSound();
+    } else if (currentCount < prevCount && prevCount > 0) {
+      playLeaveSound();
+    }
+
+    prevParticipantCount.current = currentCount;
+  }, [participants.length]);
 
   useEffect(() => {
     const checkMute = () => {
@@ -53,14 +153,38 @@ function TabVoiceChat({
   const toggleMic = async () => {
     try {
       await localParticipant.setMicrophoneEnabled(isMuted);
+      // Play sound after successful toggle (isMuted is the state BEFORE toggle)
+      if (isMuted) {
+        playUnmuteSound();
+      } else {
+        playMuteSound();
+      }
     } catch (e) {
       console.error("Failed to toggle mic:", e);
     }
   };
 
   const disconnect = () => {
+    playLeaveSound();
     room.disconnect();
     onLeave();
+  };
+
+  const shareTweet = () => {
+    const link = `${window.location.origin}/pip/${tokenCA}`;
+    const text = `Join the $${tokenSymbol} voice chat on @PumpChatOnSol`;
+    const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`;
+    window.open(tweetUrl, "_blank");
+  };
+
+  // Connection quality indicator
+  const getConnectionColor = () => {
+    switch (connectionState) {
+      case ConnectionState.Connected: return "#00ff88";
+      case ConnectionState.Connecting: return "#fbbf24";
+      case ConnectionState.Reconnecting: return "#fbbf24";
+      default: return "#ef4444";
+    }
   };
 
   // Truncate name for display
@@ -68,7 +192,34 @@ function TabVoiceChat({
     name.length > max ? name.substring(0, max) + "…" : name;
 
   return (
-    <div className="h-screen bg-[#0a0a0a] flex flex-col text-white">
+    <div className="h-screen bg-[#0a0a0a] flex flex-col text-white relative overflow-hidden">
+      {/* Floating reactions */}
+      {floatingReactions.map((reaction) => (
+        <div
+          key={reaction.id}
+          className="absolute text-4xl pointer-events-none animate-float-up"
+          style={{
+            left: `${reaction.x}%`,
+            bottom: "120px",
+            animation: "floatUp 2s ease-out forwards",
+          }}
+        >
+          {reaction.emoji}
+        </div>
+      ))}
+      <style jsx>{`
+        @keyframes floatUp {
+          0% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(-300px) scale(1.2);
+          }
+        }
+      `}</style>
+
       {/* Do not close banner */}
       <div className="bg-[#00ff88] text-black text-center py-1.5 px-4 text-xs font-medium">
         Do not close this tab while in voice chat
@@ -77,21 +228,42 @@ function TabVoiceChat({
       {/* Header */}
       <div className="p-4 border-b border-[#1a1a1a] flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {/* Connection indicator */}
+          <span
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: getConnectionColor() }}
+            title={connectionState}
+          />
           <span className="font-bold text-sm">
             <span className="text-[#00ff88]">Pump</span>Chat
           </span>
           <span className="text-zinc-600">|</span>
+          {tokenImage && (
+            <img src={tokenImage} alt="" className="w-6 h-6 rounded-full object-cover" />
+          )}
           <span className="text-sm">
             {truncateName(tokenName, 30)}{" "}
             <span className="text-zinc-500">- ${tokenSymbol}</span>
           </span>
         </div>
-        <span className="px-3 py-1 rounded-full text-sm font-semibold bg-[#00ff88] text-black flex items-center gap-1.5">
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-          </svg>
-          {participants.length}
-        </span>
+        <div className="flex items-center gap-2">
+          {/* Tweet button */}
+          <button
+            onClick={shareTweet}
+            className="px-2.5 py-1 rounded-full text-xs font-medium bg-[#1a1a1a] border border-[#333] text-zinc-400 hover:text-white hover:border-[#00ff88]/50 transition-colors flex items-center gap-1"
+          >
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+            Tweet
+          </button>
+          <span className="px-3 py-1 rounded-full text-sm font-semibold bg-[#00ff88] text-black flex items-center gap-1.5">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+            {participants.length}
+          </span>
+        </div>
       </div>
 
       {/* Participant list */}
@@ -128,23 +300,39 @@ function TabVoiceChat({
 
       {/* Controls */}
       <div className="p-4 border-t border-[#1a1a1a]">
-        <div className="max-w-2xl mx-auto flex justify-center gap-3">
-          <button
-            onClick={toggleMic}
-            className={`px-8 py-3 rounded-full font-semibold text-sm transition-all ${
-              isMuted
-                ? "bg-[#0a0a0a] text-[#00ff88] border-2 border-[#00ff88] hover:bg-[#111] animate-pulse shadow-[0_0_15px_rgba(0,255,136,0.3)]"
-                : "bg-[#00ff88] text-black hover:bg-[#00cc6a]"
-            }`}
-          >
-            {isMuted ? "🎙️ Click to Talk" : "Mute"}
-          </button>
-          <button
-            onClick={disconnect}
-            className="px-6 py-3 rounded-full bg-red-500/15 text-red-400 text-sm font-medium hover:bg-red-500/25 transition-colors"
-          >
-            Leave
-          </button>
+        <div className="max-w-2xl mx-auto space-y-3">
+          {/* Reaction buttons */}
+          <div className="flex justify-center gap-2">
+            {REACTION_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => sendReaction(emoji)}
+                className="w-10 h-10 rounded-full bg-[#1a1a1a] border border-[#282828] hover:border-[#00ff88]/50 hover:bg-[#252525] transition-all text-xl active:scale-90"
+                title={`Send ${emoji}`}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+          {/* Mic and Leave buttons */}
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={toggleMic}
+              className={`px-8 py-3 rounded-full font-semibold text-sm transition-all ${
+                isMuted
+                  ? "bg-[#0a0a0a] text-[#00ff88] border-2 border-[#00ff88] hover:bg-[#111] animate-pulse shadow-[0_0_15px_rgba(0,255,136,0.3)]"
+                  : "bg-[#00ff88] text-black hover:bg-[#00cc6a]"
+              }`}
+            >
+              {isMuted ? "🎙️ Click to Talk" : "Mute"}
+            </button>
+            <button
+              onClick={disconnect}
+              className="px-6 py-3 rounded-full bg-red-500/15 text-red-400 text-sm font-medium hover:bg-red-500/25 transition-colors"
+            >
+              Leave
+            </button>
+          </div>
         </div>
       </div>
 
@@ -155,12 +343,15 @@ function TabVoiceChat({
 
 export default function PipPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const ca = params.ca as string;
+  const urlUsername = searchParams.get("username");
 
   const [token, setToken] = useState<string | null>(null);
   const [tokenCA, setTokenCA] = useState<string | null>(null);
   const [tokenName, setTokenName] = useState<string | null>(null);
   const [tokenSymbol, setTokenSymbol] = useState<string | null>(null);
+  const [tokenImage, setTokenImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -192,9 +383,11 @@ export default function PipPage() {
 
       setTokenName(infoData.name);
       setTokenSymbol(infoData.symbol);
+      setTokenImage(infoData.image || null);
 
-      // Fetch LiveKit token
-      const response = await fetch(`/api/token?room=${encodeURIComponent(resolved)}`);
+      // Fetch LiveKit token with username if provided
+      const usernameParam = urlUsername ? `&username=${encodeURIComponent(urlUsername)}` : "";
+      const response = await fetch(`/api/token?room=${encodeURIComponent(resolved)}${usernameParam}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -203,12 +396,13 @@ export default function PipPage() {
 
       setToken(data.token);
       setIsConnected(true);
+      playJoinSound(); // Play sound on successful connect (also unlocks audio)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to connect");
     } finally {
       setIsConnecting(false);
     }
-  }, [ca]);
+  }, [ca, urlUsername]);
 
   const handleLeave = useCallback(() => {
     setHasLeft(true);
@@ -286,6 +480,8 @@ export default function PipPage() {
       <TabVoiceChat
         tokenName={tokenName || "Unknown Token"}
         tokenSymbol={tokenSymbol || "???"}
+        tokenCA={tokenCA}
+        tokenImage={tokenImage}
         onLeave={handleLeave}
       />
     </LiveKitRoom>

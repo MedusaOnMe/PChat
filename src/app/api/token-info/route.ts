@@ -1,5 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Try pump.fun API first, then fall back to DexScreener
+async function getTokenFromPumpFun(address: string) {
+  try {
+    const response = await fetch(
+      `https://frontend-api-v3.pump.fun/coins/${address}`,
+      {
+        headers: {
+          "Accept": "application/json",
+          "Origin": "https://pump.fun",
+        },
+        next: { revalidate: 300 },
+      }
+    );
+    if (response.ok) {
+      const data = await response.json();
+      if (data.name && data.symbol) {
+        return { name: data.name, symbol: data.symbol, image: data.image_uri || null };
+      }
+    }
+  } catch {
+    // Fall through to DexScreener
+  }
+  return null;
+}
+
+async function getTokenFromDexScreener(address: string) {
+  try {
+    const response = await fetch(
+      `https://api.dexscreener.com/latest/dex/tokens/${address}`,
+      { next: { revalidate: 300 } }
+    );
+    if (response.ok) {
+      const data = await response.json();
+      if (data.pairs && data.pairs.length > 0) {
+        const pair = data.pairs.find(
+          (p: { baseToken?: { address?: string } }) =>
+            p.baseToken?.address?.toLowerCase() === address.toLowerCase()
+        ) || data.pairs[0];
+        const tokenInfo = pair.baseToken?.address?.toLowerCase() === address.toLowerCase()
+          ? pair.baseToken
+          : pair.quoteToken;
+        if (tokenInfo?.name) {
+          return { name: tokenInfo.name, symbol: tokenInfo.symbol || "???", image: pair.info?.imageUrl || null };
+        }
+      }
+    }
+  } catch {
+    // Fall through
+  }
+  return null;
+}
+
 // Validate a token CA and get its metadata
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -22,49 +74,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Use DexScreener to validate and get token info
-    const response = await fetch(
-      `https://api.dexscreener.com/latest/dex/tokens/${address}`,
-      { next: { revalidate: 300 } } // Cache for 5 minutes
-    );
+    // Try pump.fun first (better for pump.fun tokens), then DexScreener
+    const tokenInfo = await getTokenFromPumpFun(address) || await getTokenFromDexScreener(address);
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Token not found" },
-        { status: 404 }
-      );
-    }
-
-    const data = await response.json();
-
-    // DexScreener returns pairs that include this token
-    if (data.pairs && data.pairs.length > 0) {
-      // Find the pair where this token is the base token
-      const pair = data.pairs.find(
-        (p: { baseToken?: { address?: string } }) =>
-          p.baseToken?.address?.toLowerCase() === address.toLowerCase()
-      ) || data.pairs[0];
-
-      const tokenInfo = pair.baseToken?.address?.toLowerCase() === address.toLowerCase()
-        ? pair.baseToken
-        : pair.quoteToken;
-
-      return NextResponse.json({
-        valid: true,
-        address: address,
-        name: tokenInfo?.name || "Unknown Token",
-        symbol: tokenInfo?.symbol || "???",
-        priceUsd: pair.priceUsd,
-        liquidity: pair.liquidity?.usd,
-      });
-    }
-
-    // No pairs found - token might exist but have no liquidity
     return NextResponse.json({
       valid: true,
       address: address,
-      name: "Unknown Token",
-      symbol: "???",
+      name: tokenInfo?.name || "Unknown Token",
+      symbol: tokenInfo?.symbol || "???",
+      image: tokenInfo?.image || null,
     });
   } catch (error) {
     console.error("Failed to validate token:", error);

@@ -10,11 +10,30 @@ import {
   useLocalParticipant,
   useRoomContext,
 } from "@livekit/components-react";
-import { Track } from "livekit-client";
+import { Track, RoomEvent } from "livekit-client";
 
 // Check if Document PiP is supported
 function isPipSupported(): boolean {
   return typeof window !== "undefined" && "documentPictureInPicture" in window;
+}
+
+// Check if mobile device
+function isMobileDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+// LocalStorage helpers
+const STORAGE_KEY_USERNAME = "pumpchat_username";
+
+function getStoredUsername(): string {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem(STORAGE_KEY_USERNAME) || "";
+}
+
+function setStoredUsername(username: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY_USERNAME, username);
 }
 
 // ========== TEST MODE - SET TO FALSE FOR PRODUCTION ==========
@@ -22,14 +41,60 @@ const TEST_MODE = false;
 const TEST_PARTICIPANT_COUNT = 100;
 // ==============================================================
 
+// Sound effects using Audio API
+function playJoinSound() {
+  try {
+    const audio = new Audio("/join.mp3");
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+  } catch { /* ignore */ }
+}
+
+function playLeaveSound() {
+  try {
+    const audio = new Audio("/leave.mp3");
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+  } catch { /* ignore */ }
+}
+
+function playMuteSound() {
+  try {
+    const audio = new Audio("/mute.mp3");
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+  } catch { /* ignore */ }
+}
+
+function playUnmuteSound() {
+  try {
+    const audio = new Audio("/unmute.mp3");
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+  } catch { /* ignore */ }
+}
+
+// Emoji reactions
+const REACTION_EMOJIS = ["🚀", "🔥", "🇮🇳", "🏳️‍🌈", "💀", "👍", "😂"];
+
+interface FloatingReaction {
+  id: string;
+  emoji: string;
+  x: number;
+}
+
 // Mini player content for PiP window
 function MiniPlayerContent({
   tokenName,
   tokenSymbol,
+  tokenCA,
+  tokenImage,
   onClose,
 }: {
   tokenName: string;
   tokenSymbol: string;
+  tokenCA: string;
+  tokenImage: string | null;
   onClose: () => void;
 }) {
   const realParticipants = useParticipants();
@@ -47,7 +112,56 @@ function MiniPlayerContent({
   const { localParticipant } = useLocalParticipant();
   const room = useRoomContext();
   const [isMuted, setIsMuted] = useState(true);
+  const prevParticipantCount = useRef(participants.length);
   const displayName = tokenName.length > 20 ? tokenName.substring(0, 20) + "…" : tokenName;
+  const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
+
+  // Add a floating reaction to display
+  const addFloatingReaction = (emoji: string) => {
+    const id = `${Date.now()}-${Math.random()}`;
+    const x = 20 + Math.random() * 60;
+    setFloatingReactions(prev => [...prev, { id, emoji, x }]);
+    setTimeout(() => {
+      setFloatingReactions(prev => prev.filter(r => r.id !== id));
+    }, 2000);
+  };
+
+  // Send a reaction to all participants
+  const sendReaction = (emoji: string) => {
+    addFloatingReaction(emoji);
+    const data = new TextEncoder().encode(JSON.stringify({ type: "reaction", emoji }));
+    localParticipant.publishData(data, { reliable: true });
+  };
+
+  // Listen for reactions from other participants
+  useEffect(() => {
+    const handleData = (payload: Uint8Array) => {
+      try {
+        const message = JSON.parse(new TextDecoder().decode(payload));
+        if (message.type === "reaction" && message.emoji) {
+          addFloatingReaction(message.emoji);
+        }
+      } catch { /* ignore */ }
+    };
+    room.on(RoomEvent.DataReceived, handleData);
+    return () => {
+      room.off(RoomEvent.DataReceived, handleData);
+    };
+  }, [room]);
+
+  // Track participant changes for sounds
+  useEffect(() => {
+    const currentCount = participants.length;
+    const prevCount = prevParticipantCount.current;
+
+    if (currentCount > prevCount) {
+      playJoinSound();
+    } else if (currentCount < prevCount && prevCount > 0) {
+      playLeaveSound();
+    }
+
+    prevParticipantCount.current = currentCount;
+  }, [participants.length]);
 
   useEffect(() => {
     const checkMute = () => {
@@ -59,15 +173,29 @@ function MiniPlayerContent({
     return () => clearInterval(interval);
   }, [localParticipant]);
 
+  const shareTweet = () => {
+    const link = `${window.location.origin}/pip/${tokenCA}`;
+    const text = `Join the $${tokenSymbol} voice chat on @PumpChatOnSol`;
+    const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`;
+    window.open(tweetUrl, "_blank");
+  };
+
   const toggleMic = async () => {
     try {
       await localParticipant.setMicrophoneEnabled(isMuted);
+      // Play sound after successful toggle (isMuted is the state BEFORE toggle)
+      if (isMuted) {
+        playUnmuteSound();
+      } else {
+        playMuteSound();
+      }
     } catch (e) {
       console.error("Failed to toggle mic:", e);
     }
   };
 
   const disconnect = () => {
+    playLeaveSound();
     room.disconnect();
     onClose();
   };
@@ -88,8 +216,27 @@ function MiniPlayerContent({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        position: "relative",
       }}
     >
+      {/* Floating reactions */}
+      {floatingReactions.map((reaction) => (
+        <div
+          key={reaction.id}
+          style={{
+            position: "absolute",
+            left: `${reaction.x}%`,
+            bottom: "80px",
+            fontSize: "28px",
+            pointerEvents: "none",
+            animation: "floatUp 2s ease-out forwards",
+            zIndex: 100,
+          }}
+        >
+          {reaction.emoji}
+        </div>
+      ))}
+
       {/* Header - token + count */}
       <div
         style={{
@@ -101,27 +248,59 @@ function MiniPlayerContent({
           gap: "8px",
         }}
       >
-        <span style={{ fontSize: "15px", fontWeight: "600", color: "#fff" }}>
-          {displayName} <span style={{ color: "#444", fontWeight: "400" }}>-</span> <span style={{ color: "#666", fontWeight: "400" }}>${tokenSymbol}</span>
-        </span>
-        <span
-          style={{
-            padding: "4px 10px",
-            borderRadius: "9999px",
-            fontSize: "13px",
-            fontWeight: "600",
-            backgroundColor: "#00ff88",
-            color: "#000",
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-          }}
-        >
-          <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-          </svg>
-          {participants.length}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {tokenImage && (
+            <img
+              src={tokenImage}
+              alt=""
+              style={{ width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover" }}
+            />
+          )}
+          <span style={{ fontSize: "15px", fontWeight: "600", color: "#fff" }}>
+            {displayName} <span style={{ color: "#444", fontWeight: "400" }}>-</span> <span style={{ color: "#666", fontWeight: "400" }}>${tokenSymbol}</span>
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <button
+            onClick={shareTweet}
+            style={{
+              padding: "4px 8px",
+              borderRadius: "9999px",
+              fontSize: "11px",
+              fontWeight: "500",
+              backgroundColor: "#1a1a1a",
+              border: "1px solid #333",
+              color: "#888",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "3px",
+            }}
+          >
+            <svg width="10" height="10" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+            Tweet
+          </button>
+          <span
+            style={{
+              padding: "4px 10px",
+              borderRadius: "9999px",
+              fontSize: "13px",
+              fontWeight: "600",
+              backgroundColor: "#00ff88",
+              color: "#000",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+            }}
+          >
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+            {participants.length}
+          </span>
+        </div>
       </div>
 
       {/* Participant list - vertical scroll */}
@@ -166,42 +345,69 @@ function MiniPlayerContent({
           padding: "10px 14px",
           borderTop: "1px solid #222",
           display: "flex",
-          justifyContent: "center",
-          gap: "10px",
+          flexDirection: "column",
+          gap: "8px",
         }}
       >
-        <button
-          onClick={toggleMic}
-          style={{
-            padding: "10px 28px",
-            borderRadius: "9999px",
-            border: isMuted ? "2px solid #00ff88" : "none",
-            backgroundColor: isMuted ? "#0a0a0a" : "#00ff88",
-            color: isMuted ? "#00ff88" : "#000",
-            fontWeight: "600",
-            fontSize: "14px",
-            cursor: "pointer",
-            boxShadow: isMuted ? "0 0 12px rgba(0, 255, 136, 0.3)" : "none",
-            animation: isMuted ? "pulse 2s ease-in-out infinite" : "none",
-          }}
-        >
-          {isMuted ? "🎙️ Click to Talk" : "Mute"}
-        </button>
-        <button
-          onClick={disconnect}
-          style={{
-            padding: "10px 20px",
-            borderRadius: "9999px",
-            border: "none",
-            backgroundColor: "rgba(239, 68, 68, 0.15)",
-            color: "#f87171",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: "500",
-          }}
-        >
-          Leave
-        </button>
+        {/* Reaction buttons */}
+        <div style={{ display: "flex", justifyContent: "center", gap: "6px" }}>
+          {REACTION_EMOJIS.map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => sendReaction(emoji)}
+              style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "50%",
+                backgroundColor: "#1a1a1a",
+                border: "1px solid #282828",
+                cursor: "pointer",
+                fontSize: "16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              title={`Send ${emoji}`}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+        {/* Mic and Leave buttons */}
+        <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+          <button
+            onClick={toggleMic}
+            style={{
+              padding: "10px 28px",
+              borderRadius: "9999px",
+              border: isMuted ? "2px solid #00ff88" : "none",
+              backgroundColor: isMuted ? "#0a0a0a" : "#00ff88",
+              color: isMuted ? "#00ff88" : "#000",
+              fontWeight: "600",
+              fontSize: "14px",
+              cursor: "pointer",
+              boxShadow: isMuted ? "0 0 12px rgba(0, 255, 136, 0.3)" : "none",
+              animation: isMuted ? "pulse 2s ease-in-out infinite" : "none",
+            }}
+          >
+            {isMuted ? "🎙️ Click to Talk" : "Mute"}
+          </button>
+          <button
+            onClick={disconnect}
+            style={{
+              padding: "10px 20px",
+              borderRadius: "9999px",
+              border: "none",
+              backgroundColor: "rgba(239, 68, 68, 0.15)",
+              color: "#f87171",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "500",
+            }}
+          >
+            Leave
+          </button>
+        </div>
       </div>
 
       <RoomAudioRenderer />
@@ -211,16 +417,27 @@ function MiniPlayerContent({
 
 export default function Home() {
   const [input, setInput] = useState("");
+  const [username, setUsername] = useState("");
   const [error, setError] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
   const [pipSupported, setPipSupported] = useState(false);
   const [isPipOpen, setIsPipOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const pipWindowRef = useRef<Window | null>(null);
   const pipRootRef = useRef<Root | null>(null);
 
   useEffect(() => {
     setPipSupported(isPipSupported());
+    setIsMobile(isMobileDevice());
+    setUsername(getStoredUsername());
   }, []);
+
+  // Save username when it changes
+  const handleUsernameChange = (value: string) => {
+    const sanitized = value.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 20);
+    setUsername(sanitized);
+    setStoredUsername(sanitized);
+  };
 
   // Extract address from various URL formats
   const extractAddress = (value: string): string | null => {
@@ -261,12 +478,12 @@ export default function Home() {
     setIsPipOpen(false);
   };
 
-  const openPipWindow = async (ca: string, token: string, serverUrl: string, tokenName: string, tokenSymbol: string) => {
+  const openPipWindow = async (ca: string, token: string, serverUrl: string, tokenName: string, tokenSymbol: string, tokenImage: string | null) => {
     try {
       // @ts-expect-error - Document PiP API not in TypeScript types yet
       const pipWindow = await window.documentPictureInPicture.requestWindow({
         width: 400,
-        height: 200,
+        height: 280,
       });
 
       pipWindowRef.current = pipWindow;
@@ -313,6 +530,10 @@ export default function Home() {
           0%, 100% { box-shadow: 0 0 12px rgba(0, 255, 136, 0.3); }
           50% { box-shadow: 0 0 20px rgba(0, 255, 136, 0.5); }
         }
+        @keyframes floatUp {
+          0% { opacity: 1; transform: translateY(0) scale(1); }
+          100% { opacity: 0; transform: translateY(-200px) scale(1.2); }
+        }
       `;
       pipWindow.document.head.appendChild(styleEl);
 
@@ -340,7 +561,7 @@ export default function Home() {
           onDisconnected={closePip}
           style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
         >
-          <MiniPlayerContent tokenName={tokenName} tokenSymbol={tokenSymbol} onClose={closePip} />
+          <MiniPlayerContent tokenName={tokenName} tokenSymbol={tokenSymbol} tokenCA={ca} tokenImage={tokenImage} onClose={closePip} />
         </LiveKitRoom>
       );
 
@@ -357,15 +578,17 @@ export default function Home() {
   };
 
   const fallbackToPopup = (ca: string) => {
+    // Include username in URL if set
+    const usernameParam = username ? `?username=${encodeURIComponent(username)}` : "";
     // Try popup first
     const popup = window.open(
-      `/pip/${ca}`,
+      `/pip/${ca}${usernameParam}`,
       "pumpchat",
       "width=380,height=500,left=100,top=100,resizable=yes,scrollbars=no"
     );
     // If popup blocked (mobile browsers), navigate directly
     if (!popup) {
-      window.location.href = `/pip/${ca}`;
+      window.location.href = `/pip/${ca}${usernameParam}`;
       return;
     }
     setIsConnecting(false);
@@ -398,9 +621,11 @@ export default function Home() {
       const infoData = await infoRes.json();
       const tokenName = infoData.name || "Unknown";
       const tokenSymbol = infoData.symbol || "???";
+      const tokenImage = infoData.image || null;
 
-      // Fetch LiveKit token
-      const response = await fetch(`/api/token?room=${encodeURIComponent(tokenCA)}`);
+      // Fetch LiveKit token with username
+      const usernameParam = username ? `&username=${encodeURIComponent(username)}` : "";
+      const response = await fetch(`/api/token?room=${encodeURIComponent(tokenCA)}${usernameParam}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -412,7 +637,8 @@ export default function Home() {
         throw new Error("Server not configured");
       }
 
-      await openPipWindow(tokenCA, data.token, serverUrl, tokenName, tokenSymbol);
+      await openPipWindow(tokenCA, data.token, serverUrl, tokenName, tokenSymbol, tokenImage);
+      playJoinSound(); // Play sound on successful connect (also unlocks audio)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to connect");
       setIsConnecting(false);
@@ -428,15 +654,55 @@ export default function Home() {
     ca: string;
     name: string;
     symbol: string;
+    image: string | null;
     participants: number;
     createdAt: number;
   }
   const [activeRooms, setActiveRooms] = useState<ActiveRoom[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(true);
+  const [selectedRoom, setSelectedRoom] = useState<ActiveRoom | null>(null);
 
   useEffect(() => {
     setSiteOrigin(window.location.origin);
   }, []);
+
+  // Join a room directly (for live rooms)
+  const joinRoomFloating = async (room: ActiveRoom) => {
+    setSelectedRoom(null);
+    setIsConnecting(true);
+
+    try {
+      if (!pipSupported) {
+        fallbackToPopup(room.ca);
+        return;
+      }
+
+      const usernameParam = username ? `&username=${encodeURIComponent(username)}` : "";
+      const response = await fetch(`/api/token?room=${encodeURIComponent(room.ca)}${usernameParam}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to get token");
+      }
+
+      const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
+      if (!serverUrl) {
+        throw new Error("Server not configured");
+      }
+
+      await openPipWindow(room.ca, data.token, serverUrl, room.name, room.symbol, room.image);
+      playJoinSound();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to connect");
+      setIsConnecting(false);
+    }
+  };
+
+  const joinRoomNewTab = (room: ActiveRoom) => {
+    setSelectedRoom(null);
+    const usernameParam = username ? `?username=${encodeURIComponent(username)}` : "";
+    window.open(`/pip/${room.ca}${usernameParam}`, "_blank");
+  };
 
   // Fetch active rooms
   useEffect(() => {
@@ -548,6 +814,56 @@ export default function Home() {
         </div>
       )}
 
+      {/* Join room modal */}
+      {selectedRoom && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedRoom(null)}
+        >
+          <div
+            className="bg-[#141414] border border-[#2a2a2a] rounded-xl p-5 w-full max-w-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              {selectedRoom.image ? (
+                <img
+                  src={selectedRoom.image}
+                  alt=""
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-[#2a2a2a]" />
+              )}
+              <div>
+                <p className="text-white font-medium">{selectedRoom.name}</p>
+                <p className="text-zinc-500 text-sm">${selectedRoom.symbol}</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <button
+                onClick={() => joinRoomFloating(selectedRoom)}
+                disabled={isConnecting}
+                className="w-full py-3 bg-[#00ff88] hover:bg-[#00cc6a] disabled:opacity-50 text-black font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                {isConnecting ? "Connecting..." : "Join Voice Chat (Floating Player)"}
+              </button>
+              <button
+                onClick={() => joinRoomNewTab(selectedRoom)}
+                className="w-full py-3 bg-[#1a1a1a] hover:bg-[#252525] border border-[#333] text-zinc-300 font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Join Voice Chat (New Tab)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -556,6 +872,17 @@ export default function Home() {
             <h1 className="text-4xl font-bold">
               <span className="text-[#00ff88]">Pump</span>Chat
             </h1>
+            <a
+              href="https://x.com/PumpChatOnSol"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-1 p-2 rounded-full bg-[#1a1a1a] border border-[#333] text-zinc-400 hover:text-white hover:border-[#00ff88]/50 transition-colors"
+              title="Follow us on X"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+            </a>
           </div>
           <p className="text-zinc-400 text-sm">
             Voice chat for any Pump.fun token
@@ -580,7 +907,7 @@ export default function Home() {
 
         {/* Main input */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+          <div className="flex gap-2">
             <input
               type="text"
               value={input}
@@ -589,12 +916,28 @@ export default function Home() {
                 setError("");
               }}
               placeholder="Paste token address or URL..."
-              className="w-full px-4 py-3 bg-[#141414] border border-[#2a2a2a] rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-[#00ff88] transition-colors font-mono text-sm"
+              className="flex-1 px-4 py-3 bg-[#141414] border border-[#2a2a2a] rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-[#00ff88] transition-colors font-mono text-sm"
               autoFocus
               disabled={isConnecting}
             />
-            {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => handleUsernameChange(e.target.value)}
+              placeholder="Name (Optional)"
+              className="w-32 px-3 py-3 bg-[#141414] border border-[#2a2a2a] rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-[#00ff88] transition-colors text-sm"
+              disabled={isConnecting}
+              title="Your display name visible to others in voice chat"
+            />
           </div>
+          {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
+
+          {/* Mobile warning */}
+          {isMobile && (
+            <p className="text-xs text-amber-400 bg-amber-400/10 px-3 py-2 rounded-lg">
+              Floating player not supported on mobile. Use &quot;New Tab&quot; option below.
+            </p>
+          )}
 
           <div className="flex gap-2">
             <button
@@ -624,7 +967,8 @@ export default function Home() {
             onClick={() => {
               const address = extractAddress(input);
               if (address) {
-                window.open(`/pip/${address}`, "_blank");
+                const usernameParam = username ? `?username=${encodeURIComponent(username)}` : "";
+                window.open(`/pip/${address}${usernameParam}`, "_blank");
               } else {
                 setError("Enter a valid token address first");
               }
@@ -652,6 +996,16 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Total active users banner */}
+        {!loadingRooms && activeRooms.length > 0 && (
+          <div className="mt-6 text-center">
+            <span className="text-[#00ff88] font-bold text-lg">
+              {activeRooms.reduce((sum, room) => sum + room.participants, 0)}
+            </span>
+            <span className="text-zinc-400 text-sm ml-2">people chatting right now</span>
+          </div>
+        )}
+
         {/* Live Rooms */}
         <div className="mt-8">
           <div className="flex items-center justify-between mb-3">
@@ -670,12 +1024,19 @@ export default function Home() {
               {activeRooms.slice(0, 10).map((room) => (
                 <button
                   key={room.ca}
-                  onClick={() => {
-                    setInput(room.ca);
-                  }}
+                  onClick={() => setSelectedRoom(room)}
                   className="w-full p-3 bg-[#141414] border border-[#2a2a2a] rounded-lg hover:border-[#00ff88]/50 transition-colors text-left flex items-center justify-between group"
                 >
                   <div className="flex items-center gap-2">
+                    {room.image ? (
+                      <img
+                        src={room.image}
+                        alt=""
+                        className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-[#2a2a2a] flex-shrink-0" />
+                    )}
                     <span className="text-sm text-zinc-300 group-hover:text-white font-medium">
                       {room.name}
                     </span>
@@ -697,7 +1058,7 @@ export default function Home() {
         {/* Bookmarklet section */}
         <div>
           <div className="text-center mb-4">
-            <p className="text-sm text-zinc-300 font-medium uppercase tracking-wide">One-click access from any trading site</p>
+            <p className="text-sm text-zinc-300 font-medium uppercase tracking-wide">One-click access from Axiom (More coming soon!)</p>
           </div>
 
           <div className="space-y-2">

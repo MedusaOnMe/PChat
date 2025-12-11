@@ -1,8 +1,31 @@
 import { RoomServiceClient } from "livekit-server-sdk";
 import { NextResponse } from "next/server";
 
-// Fetch token info from DexScreener
-async function getTokenInfo(address: string): Promise<{ name: string; symbol: string } | null> {
+// Try pump.fun API first, then fall back to DexScreener
+async function getTokenInfo(address: string): Promise<{ name: string; symbol: string; image: string | null } | null> {
+  // Try pump.fun first
+  try {
+    const pumpResponse = await fetch(
+      `https://frontend-api-v3.pump.fun/coins/${address}`,
+      {
+        headers: {
+          "Accept": "application/json",
+          "Origin": "https://pump.fun",
+        },
+        next: { revalidate: 300 },
+      }
+    );
+    if (pumpResponse.ok) {
+      const data = await pumpResponse.json();
+      if (data.name && data.symbol) {
+        return { name: data.name, symbol: data.symbol, image: data.image_uri || null };
+      }
+    }
+  } catch {
+    // Fall through to DexScreener
+  }
+
+  // Fall back to DexScreener
   try {
     const response = await fetch(
       `https://api.dexscreener.com/latest/dex/tokens/${address}`,
@@ -24,12 +47,13 @@ async function getTokenInfo(address: string): Promise<{ name: string; symbol: st
       return {
         name: tokenInfo?.name || "Unknown",
         symbol: tokenInfo?.symbol || "???",
+        image: pair.info?.imageUrl || null,
       };
     }
-    return null;
   } catch {
-    return null;
+    // Fall through
   }
+  return null;
 }
 
 export async function GET() {
@@ -59,6 +83,7 @@ export async function GET() {
           ca: room.name,
           name: tokenInfo?.name || "Unknown",
           symbol: tokenInfo?.symbol || "???",
+          image: tokenInfo?.image || null,
           participants: room.numParticipants,
           createdAt: Number(room.creationTime) * 1000,
         };
