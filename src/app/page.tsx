@@ -41,6 +41,11 @@ const TEST_MODE = false;
 const TEST_PARTICIPANT_COUNT = 100;
 // ==============================================================
 
+// ========== OFFICIAL PUMPCHAT TOKEN ==========
+// Update this when the token launches
+const PUMPCHAT_TOKEN_CA = "";
+// ==============================================
+
 // Sound effects using Audio API
 function playJoinSound() {
   try {
@@ -661,9 +666,27 @@ export default function Home() {
   const [activeRooms, setActiveRooms] = useState<ActiveRoom[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState<ActiveRoom | null>(null);
+  const [featuredRoom, setFeaturedRoom] = useState<{ name: string; symbol: string; image: string | null } | null>(null);
 
   useEffect(() => {
     setSiteOrigin(window.location.origin);
+  }, []);
+
+  // Fetch featured room metadata
+  useEffect(() => {
+    if (!PUMPCHAT_TOKEN_CA) return;
+    const fetchFeaturedRoom = async () => {
+      try {
+        const res = await fetch(`/api/token-info?address=${PUMPCHAT_TOKEN_CA}`);
+        const data = await res.json();
+        if (data.valid) {
+          setFeaturedRoom({ name: data.name, symbol: data.symbol, image: data.image });
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+    fetchFeaturedRoom();
   }, []);
 
   // Join a room directly (for live rooms)
@@ -887,6 +910,9 @@ export default function Home() {
           <p className="text-zinc-400 text-sm">
             Voice chat for any Pump.fun token
           </p>
+          <p className="text-[#00ff88] text-sm mt-2">
+            CA: Coming Soon
+          </p>
         </div>
 
         {/* Trust badges */}
@@ -990,9 +1016,9 @@ export default function Home() {
             <span className="text-zinc-600">|</span>
             <span>DexScreener</span>
             <span className="text-zinc-600">|</span>
-            <span>Birdeye</span>
-            <span className="text-zinc-600">|</span>
             <span>Axiom</span>
+            <span className="text-zinc-600">|</span>
+            <span>Padre</span>
           </div>
         </div>
 
@@ -1015,13 +1041,54 @@ export default function Home() {
             </span>
           </div>
 
-          {loadingRooms ? (
-            <div className="text-center py-4 text-zinc-500 text-sm">Loading...</div>
-          ) : activeRooms.length === 0 ? (
-            <div className="text-center py-4 text-zinc-500 text-sm">No active rooms</div>
-          ) : (
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {activeRooms.slice(0, 10).map((room) => (
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {/* Featured PumpChat Official Room */}
+            {PUMPCHAT_TOKEN_CA && featuredRoom && (
+              <button
+                onClick={() => setSelectedRoom({
+                  ca: PUMPCHAT_TOKEN_CA,
+                  name: featuredRoom.name,
+                  symbol: featuredRoom.symbol,
+                  image: featuredRoom.image,
+                  participants: activeRooms.find(r => r.ca === PUMPCHAT_TOKEN_CA)?.participants || 0,
+                  createdAt: 0,
+                })}
+                className="w-full p-3 bg-[#141414] border border-[#00ff88]/50 rounded-lg hover:border-[#00ff88] transition-colors text-left flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-2">
+                  {featuredRoom.image ? (
+                    <img
+                      src={featuredRoom.image}
+                      alt=""
+                      className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-[#2a2a2a] flex-shrink-0" />
+                  )}
+                  <span className="text-sm text-[#00ff88] group-hover:text-white font-medium">
+                    {featuredRoom.name}
+                  </span>
+                  <span className="text-xs text-zinc-500">${featuredRoom.symbol}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-[#00ff88]/20 text-[#00ff88] rounded font-medium">
+                    OFFICIAL
+                  </span>
+                </div>
+                <span className="text-xs">
+                  <span className="text-[#00ff88] font-semibold">
+                    {activeRooms.find(r => r.ca === PUMPCHAT_TOKEN_CA)?.participants || 0}
+                  </span>
+                  <span className="text-zinc-600 ml-1">in voice</span>
+                </span>
+              </button>
+            )}
+
+            {/* Regular rooms */}
+            {loadingRooms ? (
+              <div className="text-center py-4 text-zinc-500 text-sm">Loading...</div>
+            ) : activeRooms.filter(r => r.ca !== PUMPCHAT_TOKEN_CA).length === 0 && !featuredRoom ? (
+              <div className="text-center py-4 text-zinc-500 text-sm">No active rooms</div>
+            ) : (
+              activeRooms.filter(r => r.ca !== PUMPCHAT_TOKEN_CA).slice(0, 10).map((room) => (
                 <button
                   key={room.ca}
                   onClick={() => setSelectedRoom(room)}
@@ -1047,9 +1114,9 @@ export default function Home() {
                     <span className="text-zinc-600 ml-1">in voice</span>
                   </span>
                 </button>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </div>
 
         {/* Divider */}
@@ -1058,7 +1125,7 @@ export default function Home() {
         {/* Bookmarklet section */}
         <div>
           <div className="text-center mb-4">
-            <p className="text-sm text-zinc-300 font-medium uppercase tracking-wide">One-click access from Axiom (More coming soon!)</p>
+            <p className="text-sm text-zinc-300 font-medium uppercase tracking-wide">One-click access from Axiom & Padre (More coming soon!)</p>
           </div>
 
           <div className="space-y-2">
