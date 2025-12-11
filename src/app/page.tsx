@@ -43,7 +43,7 @@ const TEST_PARTICIPANT_COUNT = 100;
 
 // ========== OFFICIAL PUMPCHAT TOKEN ==========
 // Update this when the token launches
-const PUMPCHAT_TOKEN_CA = "";
+const PUMPCHAT_TOKEN_CA = "F7UBXHJCUpKKFLX87svbeQDQb4kpPfXPkFCSFmX2pump";
 // ==============================================
 
 // Sound effects using Audio API
@@ -911,7 +911,7 @@ export default function Home() {
             Voice chat for any Pump.fun token
           </p>
           <p className="text-[#00ff88] text-sm mt-2">
-            CA: Coming Soon
+            CA: F7UBXHJCUpKKFLX87svbeQDQb4kpPfXPkFCSFmX2pump
           </p>
         </div>
 
