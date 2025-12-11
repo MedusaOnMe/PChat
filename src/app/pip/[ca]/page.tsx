@@ -69,6 +69,11 @@ function TabVoiceChat({
 
   return (
     <div className="h-screen bg-[#0a0a0a] flex flex-col text-white">
+      {/* Do not close banner */}
+      <div className="bg-[#00ff88] text-black text-center py-1.5 px-4 text-xs font-medium">
+        Do not close this tab while in voice chat
+      </div>
+
       {/* Header */}
       <div className="p-4 border-b border-[#1a1a1a] flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -81,8 +86,11 @@ function TabVoiceChat({
             <span className="text-zinc-500">- ${tokenSymbol}</span>
           </span>
         </div>
-        <span className="px-3 py-1 rounded-full text-sm font-semibold bg-[#00ff88] text-black">
-          {participants.length} in room
+        <span className="px-3 py-1 rounded-full text-sm font-semibold bg-[#00ff88] text-black flex items-center gap-1.5">
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          </svg>
+          {participants.length}
         </span>
       </div>
 
@@ -125,11 +133,11 @@ function TabVoiceChat({
             onClick={toggleMic}
             className={`px-8 py-3 rounded-full font-semibold text-sm transition-all ${
               isMuted
-                ? "bg-[#1a1a1a] text-white border border-[#333] hover:bg-[#252525]"
+                ? "bg-[#0a0a0a] text-[#00ff88] border-2 border-[#00ff88] hover:bg-[#111] animate-pulse shadow-[0_0_15px_rgba(0,255,136,0.3)]"
                 : "bg-[#00ff88] text-black hover:bg-[#00cc6a]"
             }`}
           >
-            {isMuted ? "Unmute" : "Mute"}
+            {isMuted ? "🎙️ Click to Talk" : "Mute"}
           </button>
           <button
             onClick={disconnect}

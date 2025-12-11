@@ -111,8 +111,14 @@ function MiniPlayerContent({
             fontWeight: "600",
             backgroundColor: "#00ff88",
             color: "#000",
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
           }}
         >
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          </svg>
           {participants.length}
         </span>
       </div>
@@ -168,15 +174,17 @@ function MiniPlayerContent({
           style={{
             padding: "10px 28px",
             borderRadius: "9999px",
-            border: isMuted ? "1px solid #333" : "none",
-            backgroundColor: isMuted ? "#1a1a1a" : "#00ff88",
-            color: isMuted ? "#fff" : "#000",
+            border: isMuted ? "2px solid #00ff88" : "none",
+            backgroundColor: isMuted ? "#0a0a0a" : "#00ff88",
+            color: isMuted ? "#00ff88" : "#000",
             fontWeight: "600",
             fontSize: "14px",
             cursor: "pointer",
+            boxShadow: isMuted ? "0 0 12px rgba(0, 255, 136, 0.3)" : "none",
+            animation: isMuted ? "pulse 2s ease-in-out infinite" : "none",
           }}
         >
-          {isMuted ? "Unmute" : "Mute"}
+          {isMuted ? "🎙️ Click to Talk" : "Mute"}
         </button>
         <button
           onClick={disconnect}
@@ -205,6 +213,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
   const [pipSupported, setPipSupported] = useState(false);
+  const [isPipOpen, setIsPipOpen] = useState(false);
   const pipWindowRef = useRef<Window | null>(null);
   const pipRootRef = useRef<Root | null>(null);
 
@@ -248,6 +257,7 @@ export default function Home() {
       pipRootRef.current = null;
     }
     setIsConnecting(false);
+    setIsPipOpen(false);
   };
 
   const openPipWindow = async (ca: string, token: string, serverUrl: string, tokenName: string, tokenSymbol: string) => {
@@ -278,7 +288,7 @@ export default function Home() {
         flex-direction: column;
       `;
 
-      // Add scrollbar styles
+      // Add scrollbar styles and animations
       const styleEl = pipWindow.document.createElement("style");
       styleEl.textContent = `
         ::-webkit-scrollbar {
@@ -297,6 +307,10 @@ export default function Home() {
         * {
           scrollbar-width: thin;
           scrollbar-color: #333 transparent;
+        }
+        @keyframes pulse {
+          0%, 100% { box-shadow: 0 0 12px rgba(0, 255, 136, 0.3); }
+          50% { box-shadow: 0 0 20px rgba(0, 255, 136, 0.5); }
         }
       `;
       pipWindow.document.head.appendChild(styleEl);
@@ -333,6 +347,7 @@ export default function Home() {
       pipWindow.addEventListener("pagehide", closePip);
 
       setIsConnecting(false);
+      setIsPipOpen(true);
     } catch (e) {
       console.error("Failed to open PiP:", e);
       // Fallback to popup
@@ -467,8 +482,8 @@ export default function Home() {
       <span className="text-purple-400">function</span>
       <span className="text-zinc-300">(){"{"}</span>{"\n"}
       {"  "}<span className="text-purple-400">try</span><span className="text-zinc-300"> {"{"}</span>{"\n"}
-      {"    "}<span className="text-zinc-500">{"// READ-ONLY: Extract Solana address from URL"}</span>{"\n"}
-      {"    "}<span className="text-zinc-500">{"// Cannot access cookies, localStorage, or wallet"}</span>{"\n"}
+      {"    "}<span className="text-zinc-500">{"// When you click the bookmark on a token page:"}</span>{"\n"}
+      {"    "}<span className="text-zinc-500">{"// 1. Extracts the token address from the URL"}</span>{"\n"}
       {"    "}<span className="text-purple-400">var</span><span className="text-zinc-300"> m = </span>
       <span className="text-blue-400">location</span><span className="text-zinc-300">.</span>
       <span className="text-blue-400">href</span><span className="text-zinc-300">.</span>
@@ -476,7 +491,7 @@ export default function Home() {
       <span className="text-zinc-300">(</span>
       <span className="text-orange-400">/[1-9A-HJ-NP-Za-km-z]{"{"}32,44{"}"}/</span>
       <span className="text-zinc-300">);</span>{"\n\n"}
-      {"    "}<span className="text-zinc-500">{"// Exit if no token address found"}</span>{"\n"}
+      {"    "}<span className="text-zinc-500">{"// 2. Shows error if not on a token page"}</span>{"\n"}
       {"    "}<span className="text-purple-400">if</span><span className="text-zinc-300"> (!m) {"{"} </span>
       <span className="text-yellow-300">alert</span>
       <span className="text-zinc-300">(</span>
@@ -484,20 +499,20 @@ export default function Home() {
       <span className="text-zinc-300">); </span>
       <span className="text-purple-400">return</span>
       <span className="text-zinc-300">; {"}"}</span>{"\n\n"}
-      {"    "}<span className="text-zinc-500">{"// Popup position (top-right)"}</span>{"\n"}
+      {"    "}<span className="text-zinc-500">{"// 3. Calculates popup position (top-right corner)"}</span>{"\n"}
       {"    "}<span className="text-purple-400">var</span><span className="text-zinc-300"> w=</span>
       <span className="text-orange-300">380</span><span className="text-zinc-300">, h=</span>
       <span className="text-orange-300">500</span><span className="text-zinc-300">, l=</span>
       <span className="text-blue-400">screen</span><span className="text-zinc-300">.width-w-</span>
       <span className="text-orange-300">20</span><span className="text-zinc-300">, t=</span>
       <span className="text-orange-300">80</span><span className="text-zinc-300">;</span>{"\n\n"}
-      {"    "}<span className="text-zinc-500">{"// Opens SEPARATE window (isolated from trading site)"}</span>{"\n"}
+      {"    "}<span className="text-zinc-500">{"// 4. Opens the voice chat in a floating window"}</span>{"\n"}
       {"    "}<span className="text-yellow-300">window.open</span><span className="text-zinc-300">(</span>{"\n"}
       {"      "}<span className="text-green-400">&apos;{siteOrigin}/pip/&apos;</span>
       <span className="text-zinc-300"> + m[</span><span className="text-orange-300">0</span><span className="text-zinc-300">],</span>{"\n"}
       {"      "}<span className="text-green-400">&apos;pumpchat&apos;</span>
       <span className="text-zinc-300">,</span>
-      <span className="text-zinc-500"> {"// reuses same window"}</span>{"\n"}
+      <span className="text-zinc-500"> {"// reuses same popup"}</span>{"\n"}
       {"      "}<span className="text-green-400">&apos;popup=yes,width=&apos;</span>
       <span className="text-zinc-300">+w+</span>
       <span className="text-green-400">&apos;,height=&apos;</span>
@@ -525,6 +540,13 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
+      {/* PiP active banner */}
+      {isPipOpen && (
+        <div className="fixed top-0 left-0 right-0 bg-[#00ff88] text-black text-center py-2 px-4 text-sm font-medium z-50">
+          Voice chat active in floating player — do not close this tab
+        </div>
+      )}
+
       <main className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -543,12 +565,6 @@ export default function Home() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             No wallet needed
-          </span>
-          <span className="flex items-center gap-1">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            Voice only
           </span>
           <span className="flex items-center gap-1">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -677,7 +693,7 @@ export default function Home() {
         {/* Bookmarklet section */}
         <div>
           <div className="text-center mb-4">
-            <p className="text-sm text-zinc-300 font-medium uppercase tracking-wide">Or drag to your bookmark bar for easy use within Axiom</p>
+            <p className="text-sm text-zinc-300 font-medium uppercase tracking-wide">One-click access from any trading site</p>
           </div>
 
           <div className="space-y-2">
@@ -692,9 +708,9 @@ export default function Home() {
                 >
                   PumpChat
                 </a>
-                <span className="text-xs text-zinc-500">← drag and drop into bookmark bar</span>
+                <span className="text-xs text-zinc-500">← drag to bookmark bar</span>
               </div>
-              <p className="text-xs text-zinc-400">Click to join the currently viewed coin&apos;s room. You&apos;ll stay in that room as you browse other coins. Click again to switch.</p>
+              <p className="text-xs text-zinc-400">Click it on any token page to open a floating voice chat. Stays open as you browse.</p>
             </div>
 
             <div className="p-3 bg-[#141414] border border-[#2a2a2a] rounded-lg">
@@ -708,9 +724,9 @@ export default function Home() {
                 >
                   PumpChat Auto
                 </a>
-                <span className="text-xs text-zinc-500">← drag and drop into bookmark bar</span>
+                <span className="text-xs text-zinc-500">← drag to bookmark bar</span>
               </div>
-              <p className="text-xs text-zinc-400">Click once to activate. Automatically switches rooms as you browse different coins.</p>
+              <p className="text-xs text-zinc-400">Click it once to start. Automatically joins voice chats as you browse tokens. Click again to stop.</p>
             </div>
           </div>
 
