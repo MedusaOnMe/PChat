@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createRoot, Root } from "react-dom/client";
+import Image from "next/image";
 import {
   LiveKitRoom,
   RoomAudioRenderer,
@@ -550,9 +551,12 @@ export default function Home() {
       <main className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">
-            <span className="text-[#00ff88]">Pump</span>Chat
-          </h1>
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <Image src="/icon.png" alt="PumpChat" width={48} height={48} className="rounded-lg" />
+            <h1 className="text-4xl font-bold">
+              <span className="text-[#00ff88]">Pump</span>Chat
+            </h1>
+          </div>
           <p className="text-zinc-400 text-sm">
             Voice chat for any Pump.fun token
           </p>
